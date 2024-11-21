@@ -2,8 +2,11 @@ package com.cricket.service.implementation;
 
 import com.cricket.dto.BaseResponseDTO;
 import com.cricket.dto.MatchStatisticsDTO;
+import com.cricket.dto.TeamScoreDTO;
 import com.cricket.entity.MatchStatistics;
 import com.cricket.entity.Matches;
+import com.cricket.entity.Player;
+import com.cricket.entity.Team;
 import com.cricket.repository.MatchRepository;
 import com.cricket.repository.MatchStatisticsRepository;
 import com.cricket.repository.PlayerRepository;
@@ -51,6 +54,10 @@ public class MatchStatisticsServiceImplementation implements MatchStatisticsServ
         try {
             if (!ObjectUtils.isEmpty(matchStatisticsDTO)) {
                 MatchStatistics matchStatistics = convertion.convertToEntity(matchStatisticsDTO, MatchStatistics.class);
+                matchStatistics.setStrikeRate((double) (matchStatistics.getRunsScored() /matchStatistics.getBallsFaced()));
+                matchStatistics.setEconomy(matchStatistics.getRunsConcede() /((double) matchStatistics.getBallsBowled() /6));
+                matchStatistics.setBowlingAverage((double) matchStatistics.getRunsConcede() /matchStatistics.getWicketsTaken());
+                matchStatistics.setBattingAverage((double) matchStatistics.getRunsScored() / matchStatistics.getNumberOfInnings());
                 matchStatisticsRepository.save(matchStatistics);
                 baseResponseDTO.setMessage(ApplicationConstants.MATCH_STATISTICS_SAVED_SUCCESS);
                 return new ResponseEntity<>(baseResponseDTO, HttpStatus.CREATED);
@@ -87,12 +94,6 @@ public class MatchStatisticsServiceImplementation implements MatchStatisticsServ
         }
 
     }
-
-//    @Override
-//    public List<MatchStatisticsDTO> getAllMatchStatisticsByPlayerId(UUID playerId) {
-//        List<MatchStatistics> matchStatisticsList = matchStatisticsRepository.findByPlayerId(playerId);
-//        return matchStatisticsList.stream().map(matchStatistics -> convertion.convertToDto(matchStatistics, MatchStatisticsDTO.class)).toList();
-//    }
 
     @Override
     public MatchStatisticsDTO sumAllStatistics(List<MatchStatisticsDTO> matchStatisticsDTOList)
@@ -137,17 +138,6 @@ public class MatchStatisticsServiceImplementation implements MatchStatisticsServ
         return matchStatisticsDTO;
     }
 
-//    @Override
-//    public MatchStatisticsDTO getOverAllSeriesStatisticsByPlayerId(UUID playerId) {
-//        MatchStatisticsDTO responseMatchStatisticsDTO = new MatchStatisticsDTO();
-//        List<MatchStatistics> matchStatisticsList = matchStatisticsRepository.findByPlayerId(playerId);
-//        List<MatchStatisticsDTO> matchStatisticsDTOList = matchStatisticsList.stream().map(matchStatistics -> convertion.convertToDto(matchStatistics, MatchStatisticsDTO.class)).toList();
-//        if (!CollectionUtils.isEmpty(matchStatisticsDTOList)) {
-//            return sumAllStatistics(matchStatisticsDTOList);
-//        }
-//        responseMatchStatisticsDTO.setMessage(ApplicationConstants.EMPTY_OUTPUT);
-//        return responseMatchStatisticsDTO;
-//    }
 
     @Override
     public ResponseEntity<List<MatchStatisticsDTO>> getEveryStatisticsByPlayerId(UUID playerId) {
@@ -241,7 +231,10 @@ public class MatchStatisticsServiceImplementation implements MatchStatisticsServ
             List<MatchStatisticsDTO> seriesStatisticsList = new ArrayList<>();
             matchesList.forEach( matches -> {
                 MatchStatistics matchStatisticsList = matchStatisticsRepository.findByPlayerIdAndMatchesId(playerId,matches.getId());
-                seriesStatisticsList.add(convertion.convertToDto(matchStatisticsList,MatchStatisticsDTO.class));
+                if (!ObjectUtils.isEmpty(matchStatisticsList))
+                {
+                    seriesStatisticsList.add(convertion.convertToDto(matchStatisticsList,MatchStatisticsDTO.class));
+                }
             });
             return seriesStatisticsList;
         }
@@ -273,4 +266,37 @@ public class MatchStatisticsServiceImplementation implements MatchStatisticsServ
         }
     }
 
+
+
+    @Override
+    public ResponseEntity<List<TeamScoreDTO>> getTeamScore(UUID matchId) {
+        TeamScoreDTO teamScoreDTO = new TeamScoreDTO();
+        List<TeamScoreDTO> teamScoreDTOList = new ArrayList<>();
+        try {
+            Matches matches = matchRepository.findById(matchId).orElseThrow(RuntimeException::new);
+            if(!ObjectUtils.isEmpty(matches)){
+                List<Team> team = matches.getTeams();
+                for (Team fetechedTeam : team) {
+                    List<Player> playerList = fetechedTeam.getPlayers();
+                    int totalruns = 0;
+                    for (Player player : playerList) {
+                  MatchStatistics matchStatistics=   matchStatisticsRepository.findByPlayerIdAndMatchesId(player.getId(),matchId);
+                  if(!ObjectUtils.isEmpty(matchStatistics)){
+                      totalruns+= matchStatistics.getRunsScored();
+                  }
+                    }
+                    teamScoreDTO.setTotalScore(totalruns);
+                    teamScoreDTO.setTeamName(fetechedTeam.getName());
+                    teamScoreDTOList.add(teamScoreDTO);
+
+                }
+                return new ResponseEntity<>(teamScoreDTOList,HttpStatus.OK);
+            }
+
+        } catch (Exception e) {
+            log.error(e.getLocalizedMessage());
+        }
+        teamScoreDTO.setMessage(ApplicationConstants.ERROR_FETCHING_RANKINGS);
+        return new ResponseEntity<>(List.of(teamScoreDTO), HttpStatus.BAD_REQUEST);
+    }
 }

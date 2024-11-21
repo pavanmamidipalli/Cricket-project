@@ -1,7 +1,6 @@
 package com.cricket.controller;
 
 import com.cricket.dto.BaseResponseDTO;
-import com.cricket.dto.MatchStatisticsDTO;
 import com.cricket.dto.MatchesDTO;
 import com.cricket.dto.TeamDTO;
 import com.cricket.service.intrface.MatchesService;
@@ -25,6 +24,11 @@ public class MatchController {
     @Autowired
     private MatchesService matchesService;
 
+
+    @PostMapping("/save-match-by-team-id/{firstTeamId}/{secondTeamId}")
+    public ResponseEntity<BaseResponseDTO> addMatchesByTeamId(@RequestBody MatchesDTO matchesDTO,@PathVariable UUID firstTeamId,@PathVariable UUID secondTeamId) {
+        return matchesService.saveMatcheByTeamsId(matchesDTO,firstTeamId,secondTeamId);
+    }
 
     @PostMapping("/save-match")
     public ResponseEntity<BaseResponseDTO> addMatch(@RequestBody MatchesDTO matchesDTO) {
@@ -54,8 +58,7 @@ public class MatchController {
     public ResponseEntity<List<TeamDTO>>  getTeams(@PathVariable UUID matchId) {
         return matchesService.getTeamsByMatchId(matchId);
     }
-    @GetMapping("/get-matchStatistics/{matchId}")
-    public ResponseEntity<List<MatchStatisticsDTO>>  getMatchStatistics(@PathVariable UUID matchId) {
-        return matchesService.getMatchStatisticsByMatchId(matchId);
-    }
+
+
+
 }

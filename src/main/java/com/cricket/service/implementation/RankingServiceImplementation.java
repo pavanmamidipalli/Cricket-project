@@ -51,6 +51,11 @@ public class RankingServiceImplementation implements RankingService {
         BaseResponseDTO baseResponseDTO = new BaseResponseDTO();
         try {
             List<Matches> listOfMatches = matchRepository.findBySeriesId(seriesId);
+            if (CollectionUtils.isEmpty(listOfMatches))
+            {
+                baseResponseDTO.setMessage(ApplicationConstants.MATCH_NOT_FOUND);
+                return new ResponseEntity<>(baseResponseDTO,HttpStatus.BAD_REQUEST);
+            }
             List<Team> teams = listOfMatches.get(0).getTeams();
             List<Player> playersList = new ArrayList<>();
             teams.forEach(team -> playersList.addAll(team.getPlayers()));

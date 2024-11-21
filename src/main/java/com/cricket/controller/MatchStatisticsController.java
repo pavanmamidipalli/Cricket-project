@@ -35,12 +35,12 @@ public class MatchStatisticsController {
         return matchStatisticsService.getAllStatisticsDetails();
     }
 
-    @GetMapping("/get-total-statics/{id}")
-    public ResponseEntity<MatchStatisticsDTO> getStatisticsById(@PathVariable("id") UUID playerId) {
+    @GetMapping("/get-total-statics/{playerId}")
+    public ResponseEntity<MatchStatisticsDTO> getStatisticsById(@PathVariable UUID playerId) {
         return matchStatisticsService.getOverAllStatisticsOfAPlayer(playerId);
     }
-    @GetMapping("/get-every-statistics-by-player-id/{id}")
-    public ResponseEntity<List<MatchStatisticsDTO>> getAllStatisticsOfAPlayer(@PathVariable("id") UUID playerId) {
+    @GetMapping("/get-every-statistics-by-player-id/{playerId}")
+    public ResponseEntity<List<MatchStatisticsDTO>> getAllStatisticsOfAPlayer(@PathVariable UUID playerId) {
         return matchStatisticsService.getEveryStatisticsByPlayerId(playerId);
     }
 
@@ -54,5 +54,9 @@ public class MatchStatisticsController {
     public ResponseEntity<BaseResponseDTO> updateStatistics( @RequestBody MatchStatisticsDTO matchStatisticsDTO) {
         return matchStatisticsService.updateStatistics( matchStatisticsDTO);
     }
+//    @GetMapping("/get-matchStatistics/{matchId}")
+//    public ResponseEntity<List<MatchStatisticsDTO>>  getMatchStatistics(@PathVariable UUID matchId) {
+//        return matchStatisticsService.getMatchStatisticsByMatchId(matchId);
+//    }
 }
 

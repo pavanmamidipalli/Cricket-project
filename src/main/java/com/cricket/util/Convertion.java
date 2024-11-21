@@ -18,4 +18,13 @@ public class Convertion {
         return modelMapper.map(dto, entityClass);
     }
 
+//    public <D,E> D covretTODTO(E entity,Class<D> dtoClass){
+//        return modelMapper.map(entity,dtoClass);
+//    }
+//    public <E,D> E comvertToENtity(D dto,Class<E> entityClass){
+//        return modelMapper.map(dto,entityClass);
+//    }
+
+
+
 }

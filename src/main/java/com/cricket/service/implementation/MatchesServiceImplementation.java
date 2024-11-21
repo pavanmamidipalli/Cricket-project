@@ -5,10 +5,13 @@ import com.cricket.dto.MatchStatisticsDTO;
 import com.cricket.dto.MatchesDTO;
 import com.cricket.dto.PlayerDTO;
 import com.cricket.dto.TeamDTO;
+import com.cricket.dto.TeamScoreDTO;
 import com.cricket.entity.MatchStatistics;
 import com.cricket.entity.Matches;
+import com.cricket.entity.Player;
 import com.cricket.entity.Team;
 import com.cricket.repository.MatchRepository;
+import com.cricket.repository.TeamRepository;
 import com.cricket.service.intrface.MatchesService;
 import com.cricket.util.ApplicationConstants;
 import com.cricket.util.Convertion;
@@ -22,15 +25,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
+
 public class MatchesServiceImplementation implements MatchesService {
 
     @Autowired
     private MatchRepository matchRepository;
+
+    @Autowired
+    private TeamRepository teamRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -43,11 +52,10 @@ public class MatchesServiceImplementation implements MatchesService {
         BaseResponseDTO baseResponseDTO = new BaseResponseDTO();
         try {
             if (!ObjectUtils.isEmpty(matchesDTO) && !StringUtils.isEmpty(matchesDTO.getVenue())) {
-                matchRepository.save(convertion.convertToEntity(matchesDTO,Matches.class));
+                matchRepository.save(convertion.convertToEntity(matchesDTO, Matches.class));
                 baseResponseDTO.setMessage(ApplicationConstants.MATCH_SAVED_SUCCESS);
                 return new ResponseEntity<>(baseResponseDTO, HttpStatus.CREATED);
-            }
-            else {
+            } else {
                 baseResponseDTO.setMessage(ApplicationConstants.NULL_INPUT);
                 return new ResponseEntity<>(baseResponseDTO, HttpStatus.BAD_REQUEST);
             }
@@ -61,15 +69,38 @@ public class MatchesServiceImplementation implements MatchesService {
     }
 
     @Override
+    public ResponseEntity<BaseResponseDTO> saveMatcheByTeamsId(MatchesDTO matchesDTO, UUID firstTeamId, UUID secondTeamId) {
+        BaseResponseDTO baseResponseDTO = new BaseResponseDTO();
+        try {
+            if (!ObjectUtils.isEmpty(matchesDTO) && !StringUtils.isEmpty(matchesDTO.getVenue()) && !ObjectUtils.isEmpty(firstTeamId) && !ObjectUtils.isEmpty(secondTeamId)) {
+                Team firstTeam = teamRepository.findById(firstTeamId).orElseThrow(() -> new RuntimeException(ApplicationConstants.TEAM_NOT_FOUND));
+                Team secondTeam = teamRepository.findById(secondTeamId).orElseThrow(() -> new RuntimeException(ApplicationConstants.TEAM_NOT_FOUND));
+                Matches match = convertion.convertToEntity(matchesDTO, Matches.class);
+                match.setTeams(List.of(firstTeam, secondTeam));
+                matchRepository.save(match);
+                baseResponseDTO.setMessage(ApplicationConstants.MATCH_SAVED_SUCCESS);
+                return new ResponseEntity<>(baseResponseDTO, HttpStatus.OK);
+            } else {
+                baseResponseDTO.setMessage(ApplicationConstants.NULL_INPUT);
+                return new ResponseEntity<>(baseResponseDTO, HttpStatus.BAD_REQUEST);
+            }
+
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            baseResponseDTO.setMessage(ApplicationConstants.ERROR_SAVING_MATCH);
+            return new ResponseEntity<>(baseResponseDTO, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @Override
     public ResponseEntity<List<MatchesDTO>> getAllMatches() {
         MatchesDTO matchesDTO = new MatchesDTO();
         try {
-            List<Matches> matchesList = matchRepository.findAll();
+            List<Matches> matchesList = matchRepository.findAllMatchesByOrder();
             if (!CollectionUtils.isEmpty(matchesList)) {
-                List<MatchesDTO> matchesDTOList = matchesList.stream().map(matches ->  convertion.convertToDto(matches, MatchesDTO.class)).toList();
+                List<MatchesDTO> matchesDTOList = matchesList.stream().map(matches -> convertion.convertToDto(matches, MatchesDTO.class)).toList();
                 return new ResponseEntity<>(matchesDTOList, HttpStatus.OK);
-            }
-            else {
+            } else {
                 matchesDTO.setMessage(ApplicationConstants.MATCH_NOT_FOUND);
                 return new ResponseEntity<>(List.of(matchesDTO), HttpStatus.NO_CONTENT);
             }
@@ -85,15 +116,14 @@ public class MatchesServiceImplementation implements MatchesService {
     public ResponseEntity<MatchesDTO> getMatchesById(UUID matchId) {
         MatchesDTO matchesDTO = new MatchesDTO();
         try {
-            if (!ObjectUtils.isEmpty(matchId))
-            {
+            if (!ObjectUtils.isEmpty(matchId)) {
                 Matches matches = matchRepository.findById(matchId).orElseThrow(() -> new RuntimeException(ApplicationConstants.MATCH_NOT_FOUND));
                 MatchesDTO retrievedMatchesDTO = convertion.convertToDto(matches, MatchesDTO.class);
+                retrievedMatchesDTO.setTeamsDTO(matches.getTeams().stream().map(team -> convertion.convertToDto(team, TeamDTO.class)).collect(Collectors.toList()));
                 return new ResponseEntity<>(retrievedMatchesDTO, HttpStatus.OK);
-            }
-            else {
+            } else {
                 matchesDTO.setMessage(ApplicationConstants.NULL_INPUT);
-                return new ResponseEntity<>(matchesDTO,HttpStatus.BAD_REQUEST);
+                return new ResponseEntity<>(matchesDTO, HttpStatus.BAD_REQUEST);
             }
         } catch (Exception e) {
             log.error(e.getMessage());
@@ -109,7 +139,6 @@ public class MatchesServiceImplementation implements MatchesService {
             Matches existingMatch = matchRepository.findById(matchesDTO.getId()).orElseThrow(() -> new RuntimeException(ApplicationConstants.MATCH_NOT_FOUND));
 
             Matches updatedMatches = objectMapper.readerForUpdating(existingMatch).readValue(objectMapper.writeValueAsBytes(matchesDTO));
-
             matchRepository.save(updatedMatches);
             baseResponseDTO.setMessage(ApplicationConstants.MATCH_UPDATED_SUCCESS);
             return new ResponseEntity<>(baseResponseDTO, HttpStatus.OK);
@@ -121,77 +150,73 @@ public class MatchesServiceImplementation implements MatchesService {
     }
 
     /**
-     *
      * @param matchId
      * @return <List<TeamDTO>
-     *
+     * <p>
      * Finding matches based on matchId
      */
 
     @Override
     public ResponseEntity<List<TeamDTO>> getTeamsByMatchId(UUID matchId) {
         TeamDTO teamDTO = new TeamDTO();
-        try
-        {
-            if (!ObjectUtils.isEmpty(matchId))
-            {
-                Matches retrievedMatch = matchRepository.findById(matchId).orElseThrow(()-> new RuntimeException(ApplicationConstants.MATCH_NOT_FOUND));
-                if(!ObjectUtils.isEmpty(retrievedMatch))
-                {
+        try {
+            if (!ObjectUtils.isEmpty(matchId)) {
+                Matches retrievedMatch = matchRepository.findById(matchId).orElseThrow(() -> new RuntimeException(ApplicationConstants.MATCH_NOT_FOUND));
+                if (!ObjectUtils.isEmpty(retrievedMatch)) {
                     List<Team> teamList = retrievedMatch.getTeams();
-                    if(!CollectionUtils.isEmpty(teamList))
-                    {
-                        List<TeamDTO> teamDTOList =  teamList.stream().map(team -> {
+                    if (!CollectionUtils.isEmpty(teamList)) {
+                        List<TeamDTO> teamDTOList = teamList.stream().map(team -> {
                             TeamDTO belongingTeam = convertion.convertToDto(team, TeamDTO.class);
                             belongingTeam.setPlayerDTOList(team.getPlayers().stream().map(player -> convertion.convertToDto(player, PlayerDTO.class)).toList());
                             return belongingTeam;
                         }).toList();
 
-                        return new ResponseEntity<>(teamDTOList,HttpStatus.OK);
+                        return new ResponseEntity<>(teamDTOList, HttpStatus.OK);
                     }
                     teamDTO.setMessage(ApplicationConstants.MATCH_NOT_FOUND);
-                    return new ResponseEntity<>(List.of(teamDTO),HttpStatus.NO_CONTENT);
+                    return new ResponseEntity<>(List.of(teamDTO), HttpStatus.NO_CONTENT);
                 }
             }
             teamDTO.setMessage(ApplicationConstants.NULL_INPUT);
-            return new ResponseEntity<>(List.of(teamDTO),HttpStatus.BAD_REQUEST);
-        }
-        catch (Exception e )
-        {
+            return new ResponseEntity<>(List.of(teamDTO), HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
             log.error(e.getLocalizedMessage());
             teamDTO.setMessage(e.getLocalizedMessage());
-            return new ResponseEntity<>(List.of(teamDTO),HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(List.of(teamDTO), HttpStatus.BAD_REQUEST);
         }
     }
+
 
     @Override
     public ResponseEntity<List<MatchStatisticsDTO>> getMatchStatisticsByMatchId(UUID matchId) {
         MatchStatisticsDTO matchStatisticsDTO = new MatchStatisticsDTO();
-        try
-        {
-            if (!ObjectUtils.isEmpty(matchId))
-            {
-                Matches retrievedMatch = matchRepository.findById(matchId).orElseThrow(()-> new RuntimeException(ApplicationConstants.MATCH_NOT_FOUND));
-                if(!ObjectUtils.isEmpty(retrievedMatch))
-                {
+        try {
+            if (!ObjectUtils.isEmpty(matchId)) {
+                Matches retrievedMatch = matchRepository.findById(matchId).orElseThrow(() -> new RuntimeException(ApplicationConstants.MATCH_NOT_FOUND));
+                if (!ObjectUtils.isEmpty(retrievedMatch)) {
                     List<MatchStatistics> matchStatisticsList = retrievedMatch.getMatchStatistics();
-                    if(!CollectionUtils.isEmpty(matchStatisticsList))
-                    {
-                        List<MatchStatisticsDTO> matchStatisticsDTOList =  matchStatisticsList.stream().map(matchStatistic -> convertion.convertToDto(matchStatistic, MatchStatisticsDTO.class)).toList();
-                        return new ResponseEntity<>(matchStatisticsDTOList,HttpStatus.OK);
+                    if (!CollectionUtils.isEmpty(matchStatisticsList)) {
+                        List<MatchStatisticsDTO> matchStatisticsDTOList = matchStatisticsList.stream().map(matchStatistic -> {
+                            MatchStatisticsDTO retrievedMatchStatisticsDTO = convertion.convertToDto(matchStatistic, MatchStatisticsDTO.class);
+                            retrievedMatchStatisticsDTO.setPlayerDTO(convertion.convertToDto(matchStatistic.getPlayer(), PlayerDTO.class));
+                            return retrievedMatchStatisticsDTO;
+                        }).toList();
+                        return new ResponseEntity<>(matchStatisticsDTOList, HttpStatus.OK);
                     }
                 }
                 matchStatisticsDTO.setMessage(ApplicationConstants.MATCH_NOT_FOUND);
-                return new ResponseEntity<>(List.of(matchStatisticsDTO),HttpStatus.NO_CONTENT);
+                return new ResponseEntity<>(List.of(matchStatisticsDTO), HttpStatus.NO_CONTENT);
             }
             matchStatisticsDTO.setMessage(ApplicationConstants.NULL_INPUT);
-            return new ResponseEntity<>(List.of(matchStatisticsDTO),HttpStatus.BAD_REQUEST);
-        }
-        catch (Exception e )
-        {
+            return new ResponseEntity<>(List.of(matchStatisticsDTO), HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
             log.error(e.getLocalizedMessage());
             matchStatisticsDTO.setMessage(e.getLocalizedMessage());
-            return new ResponseEntity<>(List.of(matchStatisticsDTO),HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(List.of(matchStatisticsDTO), HttpStatus.BAD_REQUEST);
         }
     }
+
+
+
+
 }

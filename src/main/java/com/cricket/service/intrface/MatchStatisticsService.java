@@ -3,6 +3,7 @@ package com.cricket.service.intrface;
 
 import com.cricket.dto.BaseResponseDTO;
 import com.cricket.dto.MatchStatisticsDTO;
+import com.cricket.dto.TeamScoreDTO;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
@@ -27,5 +28,5 @@ public interface MatchStatisticsService {
 
      // player Series statistics
      ResponseEntity<List<MatchStatisticsDTO>> getSeriesStatisticsOfAPlayer(UUID playerId, UUID seriesId);
-
+     ResponseEntity<List<TeamScoreDTO>> getTeamScore(UUID matchId);
 }

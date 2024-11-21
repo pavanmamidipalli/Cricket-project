@@ -3,7 +3,6 @@ package com.cricket.service.implementation;
 import com.cricket.dto.BaseResponseDTO;
 import com.cricket.dto.PlayerDTO;
 import com.cricket.dto.TeamDTO;
-import com.cricket.entity.Matches;
 import com.cricket.entity.Player;
 import com.cricket.entity.Team;
 import com.cricket.repository.MatchRepository;
@@ -42,13 +41,14 @@ public class TeamServiceImplementation implements TeamService {
 
 
     @Override
-    public ResponseEntity<BaseResponseDTO> createTeam(TeamDTO teamDTO, UUID matchId) {
+    public ResponseEntity<BaseResponseDTO> createTeam(TeamDTO teamDTO) {
         BaseResponseDTO response = new BaseResponseDTO();
         try {
-            if (!ObjectUtils.isEmpty(teamDTO) && !ObjectUtils.isEmpty(matchId)) {
-                Matches belongingMatch = matchRepository.findById(matchId).orElseThrow(() -> new RuntimeException((ApplicationConstants.MATCH_NOT_FOUND)));
+            if (!ObjectUtils.isEmpty(teamDTO))
+            {
+//                Matches belongingMatch = matchRepository.findById(matchId).orElseThrow(() -> new RuntimeException((ApplicationConstants.MATCH_NOT_FOUND)));
                 Team inputTeam = convertion.convertToEntity(teamDTO, Team.class);
-                inputTeam.setMatches(List.of(belongingMatch));
+//                inputTeam.setMatches(List.of(belongingMatch));
                 teamRepository.save(inputTeam);
                 response.setMessage(ApplicationConstants.TEAM_SAVED_SUCCESS);
                 return new ResponseEntity<>(response, HttpStatus.CREATED);
